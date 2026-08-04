@@ -72,7 +72,7 @@
 
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
-  const APPS_URL = "https://script.google.com/macros/s/AKfycbxL8HpfBO9z0aRtMKuBI4AnxXylkhgaQaaDbHcWJ38E3T9HrcZcdr317utce0UTBXwgLg/exec";
+  const APPS_URL = "https://script.google.com/macros/s/AKfycbzljbFZfidijOMgPNG3qcdzhgR9wkIM9e2XXSBgnjbX51ZS_RL8N7B3by1KdTU7b6EfjQ/exec";
   // =======================================================================
 
   const PRODUK_COLORS = {
@@ -97,7 +97,7 @@
 
   // Ambil data via JSONP (aman lintas domain untuk Apps Script)
   function loadData() {
-    if (APPS_URL.indexOf('https://script.google.com/macros/s/AKfycbxL8HpfBO9z0aRtMKuBI4AnxXylkhgaQaaDbHcWJ38E3T9HrcZcdr317utce0UTBXwgLg/exec') === 0) {
+    if (APPS_URL.indexOf('GANTI_DENGAN') === 0) {
       document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi. Buka index.html, ganti APPS_URL dengan link /exec kamu.</div>';
       return;
     }
