@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard Kinerja</title>
+<link rel="icon" href="logo.svg">
+<link rel="apple-touch-icon" href="logo.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dashboard Kinerja">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --teal: #0E9384; --teal-dark: #0B5D57; --ink: #1A2B29; --muted: #6B7C7A;
+    --line: #E4EAE9; --bg: #F4F7F6; --card: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; overflow-x: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--ink); padding: 16px;
+    max-width: 1100px; margin: 0 auto; -webkit-font-smoothing: antialiased;
+  }
+  .head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 44px; height: 44px; border-radius: 12px; }
+  .title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  select { font-size: 14px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-weight: 600; cursor: pointer; outline: none; }
+  .hero { background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%); color: #fff; border-radius: 18px; padding: 24px 28px; margin-bottom: 16px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .hero .hlabel { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,.85); }
+  .hero .hvalue { font-size: 52px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .hero .hsub { font-size: 14px; color: rgba(255,255,255,.85); margin-left: auto; }
+  .grid2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+  .card h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .card .hint { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 250px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #E6F4F2; color: var(--teal-dark); }
+  .loading, .empty { text-align: center; color: var(--muted); padding: 40px; font-size: 14px; }
+  .foot { text-align: center; color: var(--muted); font-size: 11px; margin-top: 8px; }
+  @media (max-width: 720px) {
+    body { padding: 12px; }
+    .grid2 { grid-template-columns: 1fr; }
+    .hero { padding: 20px; }
+    .hero .hvalue { font-size: 44px; }
+    .hero .hsub { margin-left: 0; width: 100%; }
+    .title { font-size: 19px; }
+    .card { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="brand">
+      <img src="logo.svg" alt="logo">
+      <div>
+        <div class="title">Dashboard Kinerja</div>
+        <div class="subtitle" id="subtitle">Memuat data…</div>
+      </div>
+    </div>
+    <select id="monthSelect" onchange="renderMonth()"></select>
+  </div>
+
+  <div id="content"><div class="loading">⏳ Mengambil data…</div></div>
+  <div class="foot">Data pembukaan baru • diperbarui otomatis dari catatan bot</div>
+
+<script>
+  // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
+  const APPS_URL = "GANTI_DENGAN_URL_APPSCRIPT_EXEC";
+  // =======================================================================
+
+  const PRODUK_COLORS = {
+    'Tabungan Emas': '#0E9384', 'Cicil Emas': '#15B8A6', 'Tabungan Wadiah': '#3B82C4',
+    'Tabungan Mudharobah': '#6366C4', 'Tabungan Haji': '#8B5CC4', 'Tabungan Umroh': '#C44D9B',
+    'BSI Agen': '#E4A11B', 'QRIS': '#E97132', 'EDC': '#D64545'
+  };
+  const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  let ALL = null, charts = {};
+
+  const barValueLabels = {
+    id: 'barValueLabels',
+    afterDatasetsDraw: function(chart) {
+      const ctx = chart.ctx, meta = chart.getDatasetMeta(0);
+      ctx.save();
+      ctx.font = '700 12px -apple-system, sans-serif';
+      ctx.fillStyle = '#1A2B29'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      meta.data.forEach(function(bar, i){ ctx.fillText(chart.data.datasets[0].data[i], bar.x + 6, bar.y); });
+      ctx.restore();
+    }
+  };
+
+  // Ambil data via JSONP (aman lintas domain untuk Apps Script)
+  function loadData() {
+    if (APPS_URL.indexOf('GANTI_DENGAN') === 0) {
+      document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi. Buka index.html, ganti APPS_URL dengan link /exec kamu.</div>';
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData';
+    s.onerror = function(){ document.getElementById('content').innerHTML = '<div class="empty">⚠️ Gagal mengambil data. Cek URL Apps Script & pastikan akses "Anyone".</div>'; };
+    document.body.appendChild(s);
+  }
+
+  function onData(data) {
+    ALL = data;
+    const sel = document.getElementById('monthSelect');
+    sel.innerHTML = '<option value="all">Semua Waktu</option>' +
+      data.months.map(function(k){ const p = k.split('-'); return '<option value="'+k+'">'+BULAN[Number(p[1])-1]+' '+p[0]+'</option>'; }).join('');
+    if (data.months.length) sel.value = data.months[0];
+    renderMonth();
+  }
+
+  function renderMonth() {
+    if (!ALL) return;
+    const sel = document.getElementById('monthSelect').value;
+    const bucket = sel === 'all' ? ALL.all : ALL.byMonth[sel];
+    const label = sel === 'all' ? 'Semua waktu' : BULAN[Number(sel.split('-')[1])-1] + ' ' + sel.split('-')[0];
+    if (!bucket) { document.getElementById('content').innerHTML = '<div class="empty">Belum ada data.</div>'; return; }
+
+    document.getElementById('subtitle').textContent = bucket.total + ' pembukaan baru • ' + label;
+
+    const hariKeys = Object.keys(bucket.perHari).sort();
+    const html = ''
+      + '<div class="hero"><div><div class="hlabel">Pembukaan Baru</div><div class="hvalue">' + bucket.total + '</div></div><div class="hsub">' + label + '</div></div>'
+      + '<div class="grid2">'
+      +   '<div class="card"><h3>Pembukaan Baru per Produk</h3><div class="hint">Total unit produk (khusus pembukaan baru)</div><div class="chart-wrap"><canvas id="cProduk"></canvas></div></div>'
+      +   '<div class="card"><h3>Tren Harian Pembukaan Baru</h3><div class="hint">Jumlah pembukaan baru per tanggal</div><div class="chart-wrap"><canvas id="cTren"></canvas></div></div>'
+      + '</div>'
+      + '<div class="card"><h3>Pembukaan Baru Terbaru</h3><div class="hint">Nama & rekening disamarkan demi keamanan data</div>' + tableHtml(sel) + '</div>';
+    document.getElementById('content').innerHTML = html;
+
+    drawBar('cProduk', bucket.perProduk);
+    drawLine('cTren', hariKeys, hariKeys.map(function(k){ return bucket.perHari[k]; }));
+  }
+
+  function tableHtml(sel) {
+    if (!ALL.recent) return '';
+    let rows = ALL.recent;
+    if (sel !== 'all') rows = rows.filter(function(r){ return r.bulan === sel; });
+    rows = rows.slice(0, 10);
+    if (!rows.length) return '<div class="empty">Belum ada pembukaan baru untuk periode ini</div>';
+    return '<table><thead><tr><th>Tanggal</th><th>Produk</th><th>Nama</th><th>No Rekening</th></tr></thead><tbody>'
+      + rows.map(function(r){
+          return '<tr><td>' + r.tanggal + '</td><td><span class="badge">' + esc(r.produk) + '</span></td><td>' + esc(r.nama) + '</td><td>' + esc(r.rek) + '</td></tr>';
+        }).join('')
+      + '</tbody></table>';
+  }
+  function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+  function destroy(id){ if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+  function drawBar(id, obj) {
+    destroy(id);
+    const labels = Object.keys(obj).sort(function(a,b){ return obj[b]-obj[a]; });
+    if (!labels.length) return;
+    charts[id] = new Chart(document.getElementById(id), {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ data: labels.map(function(l){ return obj[l]; }), backgroundColor: labels.map(function(l){ return PRODUK_COLORS[l] || '#94A3A1'; }), borderRadius: 6 }] },
+      options: { indexAxis: 'y', layout: { padding: { right: 30 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grace: '8%' } }, maintainAspectRatio: false },
+      plugins: [barValueLabels]
+    });
+  }
+  function drawLine(id, labels, vals) {
+    destroy(id);
+    if (!labels.length) return;
+    const short = labels.map(function(k){ const p = k.split('-'); return p[2] + '/' + p[1]; });
+    charts[id] = new Chart(document.getElementById(id), {
+      type: 'line',
+      data: { labels: short, datasets: [{ data: vals, borderColor: '#0E9384', backgroundColor: 'rgba(14,147,132,.12)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#0E9384' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, maintainAspectRatio: false }
+    });
+  }
+
+  loadData();
+</script>
+</body>
+</html>
