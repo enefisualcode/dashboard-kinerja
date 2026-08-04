@@ -7,7 +7,8 @@
 <link rel="icon" href="logo.svg">
 <link rel="apple-touch-icon" href="logo.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0E9384">
 <meta name="apple-mobile-web-app-title" content="Dashboard Kinerja">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -19,7 +20,8 @@
   html, body { width: 100%; overflow-x: hidden; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: var(--bg); color: var(--ink); padding: 16px;
+    background: var(--bg); color: var(--ink);
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     max-width: 1100px; margin: 0 auto; -webkit-font-smoothing: antialiased;
   }
   .head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
@@ -27,7 +29,7 @@
   .brand img { width: 44px; height: 44px; border-radius: 12px; }
   .title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
   .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  select { font-size: 14px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-weight: 600; cursor: pointer; outline: none; }
+  select { font-size: 15px; padding: 11px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 600; cursor: pointer; outline: none; min-height: 44px; -webkit-appearance: none; }
   .hero { background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%); color: #fff; border-radius: 18px; padding: 24px 28px; margin-bottom: 16px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
   .hero .hlabel { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,.85); }
   .hero .hvalue { font-size: 52px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
@@ -95,40 +97,48 @@
     }
   };
 
-  // Ambil data via JSONP (aman lintas domain untuk Apps Script), dengan retry & timeout
-  let _attempt = 0, _timer = null;
+  // Ambil data: coba fetch dulu (andal & cepat), JSONP sebagai cadangan
+  let _attempt = 0, _timer = null, _done = false;
 
   function loadData() {
     if (APPS_URL.indexOf('GANTI_DENGAN') === 0) {
-      document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi. Buka index.html, ganti APPS_URL dengan link /exec kamu.</div>';
+      document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi.</div>';
       return;
     }
     _attempt++;
     document.getElementById('content').innerHTML = '<div class="loading">⏳ Mengambil data… (percobaan ' + _attempt + ')</div>';
 
+    const url = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (!_done) onData(d); })
+      .catch(function(){ loadJSONP(); }); // kalau fetch diblokir CORS, pakai JSONP
+
+    clearTimeout(_timer);
+    _timer = setTimeout(function(){ if (!_done) retryOrFail(); }, 20000);
+  }
+
+  function loadJSONP() {
+    if (_done) return;
     const s = document.createElement('script');
     s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData&_=' + Date.now();
-    s.onerror = function(){ retryOrFail(); };
     document.body.appendChild(s);
-
-    // Kalau 12 detik belum ada data, coba lagi
-    clearTimeout(_timer);
-    _timer = setTimeout(function(){ if (!ALL) retryOrFail(); }, 12000);
   }
 
   function retryOrFail() {
     clearTimeout(_timer);
-    if (ALL) return; // sudah sukses
+    if (_done) return;
     if (_attempt < 4) {
       setTimeout(loadData, 800);
     } else {
       document.getElementById('content').innerHTML =
         '<div class="empty">⚠️ Data belum bisa dimuat. Apps Script mungkin sedang lambat.<br><br>'
-        + '<button onclick="_attempt=0;ALL=null;loadData()" style="padding:9px 18px;border:none;border-radius:10px;background:#0E9384;color:#fff;font-weight:600;cursor:pointer">Coba lagi</button></div>';
+        + '<button onclick="_attempt=0;_done=false;loadData()" style="padding:12px 22px;border:none;border-radius:12px;background:#0E9384;color:#fff;font-weight:600;font-size:15px;cursor:pointer;min-height:44px">Coba lagi</button></div>';
     }
   }
 
   function onData(data) {
+    _done = true;
     clearTimeout(_timer);
     ALL = data;
     const sel = document.getElementById('monthSelect');
