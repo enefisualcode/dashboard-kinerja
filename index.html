@@ -95,19 +95,41 @@
     }
   };
 
-  // Ambil data via JSONP (aman lintas domain untuk Apps Script)
+  // Ambil data via JSONP (aman lintas domain untuk Apps Script), dengan retry & timeout
+  let _attempt = 0, _timer = null;
+
   function loadData() {
     if (APPS_URL.indexOf('GANTI_DENGAN') === 0) {
       document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi. Buka index.html, ganti APPS_URL dengan link /exec kamu.</div>';
       return;
     }
+    _attempt++;
+    document.getElementById('content').innerHTML = '<div class="loading">⏳ Mengambil data… (percobaan ' + _attempt + ')</div>';
+
     const s = document.createElement('script');
-    s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData';
-    s.onerror = function(){ document.getElementById('content').innerHTML = '<div class="empty">⚠️ Gagal mengambil data. Cek URL Apps Script & pastikan akses "Anyone".</div>'; };
+    s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData&_=' + Date.now();
+    s.onerror = function(){ retryOrFail(); };
     document.body.appendChild(s);
+
+    // Kalau 12 detik belum ada data, coba lagi
+    clearTimeout(_timer);
+    _timer = setTimeout(function(){ if (!ALL) retryOrFail(); }, 12000);
+  }
+
+  function retryOrFail() {
+    clearTimeout(_timer);
+    if (ALL) return; // sudah sukses
+    if (_attempt < 4) {
+      setTimeout(loadData, 800);
+    } else {
+      document.getElementById('content').innerHTML =
+        '<div class="empty">⚠️ Data belum bisa dimuat. Apps Script mungkin sedang lambat.<br><br>'
+        + '<button onclick="_attempt=0;ALL=null;loadData()" style="padding:9px 18px;border:none;border-radius:10px;background:#0E9384;color:#fff;font-weight:600;cursor:pointer">Coba lagi</button></div>';
+    }
   }
 
   function onData(data) {
+    clearTimeout(_timer);
     ALL = data;
     const sel = document.getElementById('monthSelect');
     sel.innerHTML = '<option value="all">Semua Waktu</option>' +
