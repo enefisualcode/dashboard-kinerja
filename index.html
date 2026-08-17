@@ -66,7 +66,10 @@
         <div class="subtitle" id="subtitle">Memuat data…</div>
       </div>
     </div>
-    <select id="monthSelect" onchange="renderMonth()"></select>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="monthSelect" onchange="renderMonth()"></select>
+      <button id="refreshBtn" onclick="forceRefresh()" title="Perbarui data" style="min-height:44px;min-width:44px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:18px;cursor:pointer">↻</button>
+    </div>
   </div>
 
   <div id="content"><div class="loading">⏳ Mengambil data…</div></div>
@@ -98,53 +101,89 @@
   };
 
   // Ambil data: coba fetch dulu (andal & cepat), JSONP sebagai cadangan
-  let _attempt = 0, _timer = null, _done = false;
+  const LS_KEY = 'dashboard_cache_v1';
+  let _attempt = 0, _timer = null, _fetched = false, _forceRefresh = false, _shown = false;
+
+  function forceRefresh() {
+    _attempt = 0; _fetched = false; _forceRefresh = true;
+    setSub('memperbarui…');
+    loadData();
+  }
+
+  function setSub(txt) {
+    const el = document.getElementById('subtitle');
+    if (el && txt) el.textContent = txt;
+  }
 
   function loadData() {
     if (APPS_URL.indexOf('GANTI_DENGAN') === 0) {
       document.getElementById('content').innerHTML = '<div class="empty">⚠️ URL Apps Script belum diisi.</div>';
       return;
     }
-    _attempt++;
-    document.getElementById('content').innerHTML = '<div class="loading">⏳ Mengambil data… (percobaan ' + _attempt + ')</div>';
 
-    const url = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+    // 1) Tampilkan data tersimpan di HP dulu (instan) — hanya sekali
+    if (!_shown) {
+      try {
+        const cached = localStorage.getItem(LS_KEY);
+        if (cached) { applyData(JSON.parse(cached)); _shown = true; setSub('memperbarui…'); }
+      } catch (e) {}
+    }
+    if (!_shown) {
+      document.getElementById('content').innerHTML = '<div class="loading">⏳ Mengambil data…</div>';
+    }
+
+    // 2) Ambil data terbaru di latar belakang
+    _attempt++;
+    const url = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now() + (_forceRefresh ? '&refresh=1' : '');
     fetch(url)
       .then(function(r){ return r.json(); })
-      .then(function(d){ if (!_done) onData(d); })
-      .catch(function(){ loadJSONP(); }); // kalau fetch diblokir CORS, pakai JSONP
+      .then(function(d){ onData(d); })
+      .catch(function(){ loadJSONP(); });
 
     clearTimeout(_timer);
-    _timer = setTimeout(function(){ if (!_done) retryOrFail(); }, 20000);
+    _timer = setTimeout(function(){ if (!_fetched) retryOrFail(); }, 20000);
   }
 
   function loadJSONP() {
-    if (_done) return;
+    if (_fetched) return;
     const s = document.createElement('script');
-    s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData&_=' + Date.now();
+    s.src = APPS_URL + (APPS_URL.indexOf('?') >= 0 ? '&' : '?') + 'callback=onData&_=' + Date.now() + (_forceRefresh ? '&refresh=1' : '');
     document.body.appendChild(s);
   }
 
   function retryOrFail() {
     clearTimeout(_timer);
-    if (_done) return;
+    if (_fetched) return;
     if (_attempt < 4) {
       setTimeout(loadData, 800);
-    } else {
+    } else if (!_shown) {
       document.getElementById('content').innerHTML =
         '<div class="empty">⚠️ Data belum bisa dimuat. Apps Script mungkin sedang lambat.<br><br>'
-        + '<button onclick="_attempt=0;_done=false;loadData()" style="padding:12px 22px;border:none;border-radius:12px;background:#0E9384;color:#fff;font-weight:600;font-size:15px;cursor:pointer;min-height:44px">Coba lagi</button></div>';
+        + '<button onclick="_attempt=0;_fetched=false;loadData()" style="padding:12px 22px;border:none;border-radius:12px;background:#0E9384;color:#fff;font-weight:600;font-size:15px;cursor:pointer;min-height:44px">Coba lagi</button></div>';
     }
+    // kalau data tersimpan sudah tampil, biarkan tampil (update diam-diam gagal, tidak apa-apa)
   }
 
+  // Dipanggil saat data BARU tiba (dari fetch atau JSONP)
   function onData(data) {
-    _done = true;
+    _fetched = true;
+    _forceRefresh = false;
     clearTimeout(_timer);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) {}
+    applyData(data);
+  }
+
+  // Render data ke layar (dipakai baik untuk data cache maupun data baru)
+  function applyData(data) {
+    _shown = true;
     ALL = data;
     const sel = document.getElementById('monthSelect');
+    const prev = sel.value;
     sel.innerHTML = '<option value="all">Semua Waktu</option>' +
       data.months.map(function(k){ const p = k.split('-'); return '<option value="'+k+'">'+BULAN[Number(p[1])-1]+' '+p[0]+'</option>'; }).join('');
-    if (data.months.length) sel.value = data.months[0];
+    const opts = Array.prototype.map.call(sel.options, function(o){ return o.value; });
+    if (prev && opts.indexOf(prev) >= 0) sel.value = prev;
+    else if (data.months.length) sel.value = data.months[0];
     renderMonth();
   }
 
