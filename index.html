@@ -15,6 +15,7 @@
   :root {
     --teal: #0E9384; --teal-dark: #0B5D57; --ink: #1A2B29; --muted: #6B7C7A;
     --line: #E4EAE9; --bg: #F4F7F6; --card: #FFFFFF;
+    --gold: #F2A93B; --gold-dark: #C97C1B;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; overflow-x: hidden; }
@@ -30,7 +31,7 @@
   .title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
   .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
   select { font-size: 15px; padding: 11px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 600; cursor: pointer; outline: none; min-height: 44px; -webkit-appearance: none; }
-  .hero { background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%); color: #fff; border-radius: 18px; padding: 24px 28px; margin-bottom: 16px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .hero { background: linear-gradient(120deg, var(--teal-dark) 0%, var(--teal) 55%, var(--gold-dark) 100%); color: #fff; border-radius: 18px; padding: 24px 28px; margin-bottom: 16px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
   .hero .hlabel { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,.85); }
   .hero .hvalue { font-size: 52px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
   .hero .hsub { font-size: 14px; color: rgba(255,255,255,.85); margin-left: auto; }
@@ -108,13 +109,13 @@
 </script>
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
-     const APPS_URL = "https://script.google.com/macros/s/AKfycbyhW8OIRtf763XuuzRAhTWSbvdNDoJRojJTxwGxqNB2iSu6O1Nkjyt8PpcNAZvovHAkIQ/exec";
+  const APPS_URL = "https://script.google.com/macros/s/AKfycbyhW8OIRtf763XuuzRAhTWSbvdNDoJRojJTxwGxqNB2iSu6O1Nkjyt8PpcNAZvovHAkIQ/exec";
   // =======================================================================
 
   const PRODUK_COLORS = {
-    'Tabungan Emas': '#0E9384', 'Cicil Emas': '#15B8A6', 'Tabungan Wadiah': '#3B82C4',
+    'Tabungan Emas': '#F2A93B', 'Cicil Emas': '#E8C170', 'Tabungan Wadiah': '#3B82C4',
     'Tabungan Mudharobah': '#6366C4', 'Tabungan Haji': '#8B5CC4', 'Tabungan Umroh': '#C44D9B',
-    'BSI Agen': '#E4A11B', 'QRIS': '#E97132', 'EDC': '#D64545'
+    'BSI Agen': '#0E9384', 'QRIS': '#E97132', 'EDC': '#D64545'
   };
   const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   let ALL = null, charts = {};
