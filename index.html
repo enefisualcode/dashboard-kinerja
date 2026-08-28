@@ -50,7 +50,10 @@
   .tabBtn { flex: 1; padding: 11px 8px; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; min-height: 44px; }
   .tabBtn.active { color: var(--teal-dark); border-bottom-color: var(--teal); }
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
-  .gcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .gcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+  .gcard .gbody { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .gcard .gthumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--bg); display: block; }
+  .gcard .gthumb-link { display: block; }
   .gcard .gtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .gcard .gdate { font-size: 12px; color: var(--muted); font-weight: 600; }
   .gcard .gcaption { font-size: 13.5px; color: var(--ink); line-height: 1.4; flex: 1; }
@@ -105,7 +108,7 @@
 </script>
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
-  const APPS_URL = "https://script.google.com/macros/s/AKfycbyhW8OIRtf763XuuzRAhTWSbvdNDoJRojJTxwGxqNB2iSu6O1Nkjyt8PpcNAZvovHAkIQ/exec";
+  const APPS_URL = "https://script.google.com/macros/s/AKfycbylgS1OSrrCNumbYa2qZlOPbqq1MietSdGlsH4pYBauxfAzgiKMwnV96OJaNpdWtc9x/exec";
   // =======================================================================
 
   const PRODUK_COLORS = {
@@ -269,17 +272,30 @@
     document.getElementById('content').innerHTML = html;
   }
 
+  function driveFileId(url) {
+    if (!url) return null;
+    const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+
   function galleryCard(d) {
     const color = KATEGORI_COLORS[d.kategori] || '#6B7C7A';
+    const fileId = driveFileId(d.foto);
+    const thumb = fileId
+      ? '<a class="gthumb-link" href="' + esc(d.foto) + '" target="_blank" rel="noopener">'
+        + '<img class="gthumb" loading="lazy" src="https://drive.google.com/thumbnail?id=' + fileId + '&sz=w500" alt="foto kunjungan"></a>'
+      : '';
     const fotoBtn = d.foto
       ? '<a class="gphoto" href="' + esc(d.foto) + '" target="_blank" rel="noopener">📷 Lihat Foto</a>'
       : '<span class="gnophoto">📝 Tanpa foto</span>';
     return '<div class="gcard">'
+      + thumb
+      + '<div class="gbody">'
       + '<div class="gtop"><span class="gdate">' + d.tanggal + '</span>'
       + '<span class="gbadge" style="background:' + color + '">' + esc(d.kategori || '-') + '</span></div>'
       + '<div class="gcaption">' + esc(d.caption || '-') + '</div>'
       + fotoBtn
-      + '</div>';
+      + '</div></div>';
   }
 
   function tableHtml(sel) {
