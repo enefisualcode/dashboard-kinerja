@@ -46,6 +46,17 @@
   .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #E6F4F2; color: var(--teal-dark); }
   .loading, .empty { text-align: center; color: var(--muted); padding: 40px; font-size: 14px; }
   .foot { text-align: center; color: var(--muted); font-size: 11px; margin-top: 8px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .tabBtn { flex: 1; padding: 11px 8px; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; min-height: 44px; }
+  .tabBtn.active { color: var(--teal-dark); border-bottom-color: var(--teal); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .gcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .gcard .gtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .gcard .gdate { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .gcard .gcaption { font-size: 13.5px; color: var(--ink); line-height: 1.4; flex: 1; }
+  .gcard .gphoto { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--teal-dark); text-decoration: none; padding: 8px 12px; border-radius: 10px; background: var(--teal-soft); justify-content: center; }
+  .gcard .gnophoto { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); padding: 8px 12px; border-radius: 10px; background: var(--bg); justify-content: center; }
+  .gbadge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
   @media (max-width: 720px) {
     body { padding: 12px; }
     .grid2 { grid-template-columns: 1fr; }
@@ -72,9 +83,26 @@
     </div>
   </div>
 
-  <div id="content"><div class="loading">⏳ Mengambil data…</div></div>
-  <div class="foot">Data pembukaan baru • diperbarui otomatis dari catatan bot</div>
+  <div class="tabs">
+    <button class="tabBtn active" id="tabRingkasan" onclick="switchTab('ringkasan')">📊 Ringkasan</button>
+    <button class="tabBtn" id="tabDokumentasi" onclick="switchTab('dokumentasi')">🖼️ Dokumentasi</button>
+  </div>
 
+  <div id="content"><div class="loading">⏳ Mengambil data…</div></div>
+  <div class="foot" id="footText">Data pembukaan baru • diperbarui otomatis dari catatan bot</div>
+
+<script>
+  let _activeTab = 'ringkasan';
+  function switchTab(tab) {
+    _activeTab = tab;
+    document.getElementById('tabRingkasan').classList.toggle('active', tab === 'ringkasan');
+    document.getElementById('tabDokumentasi').classList.toggle('active', tab === 'dokumentasi');
+    document.getElementById('footText').textContent = tab === 'dokumentasi'
+      ? 'Log kunjungan & aktivitas lapangan • foto tersimpan privat di Drive'
+      : 'Data pembukaan baru • diperbarui otomatis dari catatan bot';
+    renderMonth();
+  }
+</script>
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
   const APPS_URL = "https://script.google.com/macros/s/AKfycbylgS1OSrrCNumbYa2qZlOPbqq1MietSdGlsH4pYBauxfAzgiKMwnV96OJaNpdWtc9x/exec";
@@ -190,8 +218,14 @@
   function renderMonth() {
     if (!ALL) return;
     const sel = document.getElementById('monthSelect').value;
-    const bucket = sel === 'all' ? ALL.all : ALL.byMonth[sel];
     const label = sel === 'all' ? 'Semua waktu' : BULAN[Number(sel.split('-')[1])-1] + ' ' + sel.split('-')[0];
+
+    if (_activeTab === 'dokumentasi') {
+      renderDokumentasi(sel, label);
+      return;
+    }
+
+    const bucket = sel === 'all' ? ALL.all : ALL.byMonth[sel];
     if (!bucket) { document.getElementById('content').innerHTML = '<div class="empty">Belum ada data.</div>'; return; }
 
     document.getElementById('subtitle').textContent = bucket.total + ' pembukaan baru • ' + label;
@@ -208,6 +242,44 @@
 
     drawBar('cProduk', bucket.perProduk);
     drawLine('cTren', hariKeys, hariKeys.map(function(k){ return bucket.perHari[k]; }));
+  }
+
+  const KATEGORI_COLORS = {
+    'Kunjungan': '#0E9384', 'Canvassing': '#E4A11B', 'Penawaran': '#3B82C4',
+    'Maintenance': '#8B5CC4', 'Survei': '#C44D9B', 'Edukasi': '#12805C',
+    'Meeting': '#E97132', 'Dokumentasi': '#6366C4'
+  };
+
+  function renderDokumentasi(sel, label) {
+    const list = (ALL.dokumentasi || []).filter(function(d){
+      return sel === 'all' ? true : d.bulan === sel;
+    });
+    document.getElementById('subtitle').textContent = list.length + ' catatan kunjungan • ' + label;
+
+    if (!list.length) {
+      document.getElementById('content').innerHTML =
+        '<div class="hero"><div><div class="hlabel">Dokumentasi</div><div class="hvalue">0</div></div><div class="hsub">' + label + '</div></div>'
+        + '<div class="card"><div class="empty">Belum ada catatan kunjungan untuk periode ini.</div></div>';
+      return;
+    }
+
+    const html = ''
+      + '<div class="hero"><div><div class="hlabel">Catatan Kunjungan</div><div class="hvalue">' + list.length + '</div></div><div class="hsub">' + label + '</div></div>'
+      + '<div class="gallery">' + list.map(galleryCard).join('') + '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function galleryCard(d) {
+    const color = KATEGORI_COLORS[d.kategori] || '#6B7C7A';
+    const fotoBtn = d.foto
+      ? '<a class="gphoto" href="' + esc(d.foto) + '" target="_blank" rel="noopener">📷 Lihat Foto</a>'
+      : '<span class="gnophoto">📝 Tanpa foto</span>';
+    return '<div class="gcard">'
+      + '<div class="gtop"><span class="gdate">' + d.tanggal + '</span>'
+      + '<span class="gbadge" style="background:' + color + '">' + esc(d.kategori || '-') + '</span></div>'
+      + '<div class="gcaption">' + esc(d.caption || '-') + '</div>'
+      + fotoBtn
+      + '</div>';
   }
 
   function tableHtml(sel) {
