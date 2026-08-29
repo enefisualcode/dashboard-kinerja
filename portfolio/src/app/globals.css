@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Design tokens
+   A restrained neutral system. The teal accent is reserved for state — active
+   links, status, selected filters, small labels — and nothing else.
+   ========================================================================== */
+
+@theme {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-raised: #fbfbfa;
+  --color-ink: #171717;
+  --color-ink-soft: #3d3d3a;
+  /* Text tones are contrast-checked against --color-bg (#f7f7f5):
+     ink-soft 10.6:1 · muted 5.9:1 · faint 4.7:1 — all clear WCAG AA for the
+     small type they carry. */
+  --color-muted: #5f5f5a;
+  --color-faint: #6e6e6b;
+  --color-line: #e5e4de;
+  --color-line-strong: #d6d5cd;
+
+  --color-accent: #0e7c6f;
+  --color-accent-deep: #0a5b52;
+  --color-accent-soft: #e8f2f0;
+
+  --color-amber: #8a5514;
+  --color-amber-soft: #f6eddc;
+  --color-violet: #5b45a8;
+  --color-violet-soft: #eeebf8;
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo,
+    monospace;
+
+  --radius-frame: 16px;
+
+  --shadow-card: 0 1px 2px rgb(23 23 23 / 0.04), 0 8px 24px -16px rgb(23 23 23 / 0.16);
+  --shadow-frame: 0 2px 4px rgb(23 23 23 / 0.04), 0 24px 56px -28px rgb(23 23 23 / 0.28);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+* {
+  min-width: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Sticky header height plus breathing room, so anchored sections are not
+     hidden underneath it. */
+  scroll-padding-top: 6rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Remove the smooth-scroll and every reveal transition for people who ask. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ==========================================================================
+   Typography helpers
+   ========================================================================== */
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-deep);
+}
+
+@utility eyebrow-muted {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+/* Editorial display sizes. Deliberately capped so the mobile hero does not
+   swallow the screen. */
+@utility display-xl {
+  font-size: clamp(2.125rem, 1.35rem + 3.4vw, 3.75rem);
+  line-height: 1.06;
+  letter-spacing: -0.032em;
+  font-weight: 600;
+}
+
+@utility display-lg {
+  font-size: clamp(1.75rem, 1.25rem + 2.1vw, 2.75rem);
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  font-weight: 600;
+}
+
+@utility display-md {
+  font-size: clamp(1.375rem, 1.1rem + 1.1vw, 1.875rem);
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  font-weight: 600;
+}
+
+@utility lede {
+  font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+}
+
+@utility prose-body {
+  font-size: 1.0625rem;
+  line-height: 1.72;
+  color: var(--color-ink-soft);
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+
+@utility container-page {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 2rem;
+  }
+
+  @media (min-width: 1024px) {
+    padding-inline: 2.5rem;
+  }
+}
+
+@utility container-prose {
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+@utility section-pad {
+  padding-block: clamp(3.5rem, 2rem + 7vw, 7.5rem);
+}
+
+@utility hairline {
+  border-top: 1px solid var(--color-line);
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@utility card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+}
+
+@utility link-underline {
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 160ms ease, color 160ms ease;
+
+  &:hover {
+    color: var(--color-accent-deep);
+    text-decoration-color: var(--color-accent);
+  }
+}
+
+/* The arrow nudge used on every "read more" affordance. */
+@utility arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: var(--color-accent-deep);
+
+  & svg {
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  &:hover svg {
+    transform: translateX(4px);
+  }
+}
+
+/* ==========================================================================
+   Reveal on scroll
+   The element is visible by default; the Reveal component adds the hidden state
+   only once JavaScript is running, so nothing is invisible without JS.
+   ========================================================================== */
+
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-reveal="shown"] {
+  opacity: 1;
+  transform: none;
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal="pending"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Printing never scrolls, so a pending element would print blank. */
+@media print {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
