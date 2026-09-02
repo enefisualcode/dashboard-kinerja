@@ -338,6 +338,11 @@
   }
 
   loadData();
+
+  // Auto-refresh tiap 60 detik selagi dashboard dibuka (tanpa perlu tap manual)
+  setInterval(function() {
+    if (document.visibilityState === 'visible') loadData();
+  }, 60000);
 </script>
 </body>
 </html>
