@@ -159,7 +159,7 @@
 
   // Ambil data: coba fetch dulu (andal & cepat), JSONP sebagai cadangan
   const LS_KEY = 'dashboard_cache_v1';
-  const CLOSING_KEY = 'dashboard_closing_v2';
+  const CLOSING_KEY = 'dashboard_closing_v3';
   let _attempt = 0, _timer = null, _fetched = false, _forceRefresh = false, _shown = false;
 
   function forceRefresh() {
@@ -347,7 +347,7 @@
   function uniqueAccounts(bucket){
     const set = {};
     const source = (bucket.rows && bucket.rows.length) ? bucket.rows : (ALL.recent || []);
-    source.forEach(function(r){ if (r.rek && String(r.kategori || '').toLowerCase() === 'new cif') set[String(r.rek).replace(/\s/g,'')] = true; });
+    source.forEach(function(r){ if (r.rek && String(r.kategori || '').trim().toLowerCase().replace(/[_-]+/g,' ') === 'new cif') set[String(r.rek).replace(/\s/g,'')] = true; });
     return Object.keys(set).length;
   }
   function mergeLocalClosings(data){
