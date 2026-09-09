@@ -47,6 +47,16 @@
   .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #E6F4F2; color: var(--teal-dark); }
   .loading, .empty { text-align: center; color: var(--muted); padding: 40px; font-size: 14px; }
   .foot { text-align: center; color: var(--muted); font-size: 11px; margin-top: 8px; }
+  .tools-card { margin-bottom: 16px; }
+  .tools-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 150px; }
+  .field label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .field input { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; color: var(--ink); }
+  .action-btn { min-height: 42px; padding: 9px 14px; border: none; border-radius: 10px; background: var(--teal); color: #fff; font-weight: 700; cursor: pointer; }
+  .secondary-btn { background: var(--bg); color: var(--teal-dark); border: 1px solid var(--line); }
+  .tools-note { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .file-input { display: none; }
+  .newcif { color: var(--gold-dark); font-size: 13px; font-weight: 700; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
   .tabBtn { flex: 1; padding: 11px 8px; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; min-height: 44px; }
   .tabBtn.active { color: var(--teal-dark); border-bottom-color: var(--teal); }
@@ -92,6 +102,20 @@
     <button class="tabBtn" id="tabDokumentasi" onclick="switchTab('dokumentasi')">🖼️ Dokumentasi</button>
   </div>
 
+  <div class="card tools-card">
+    <h3>Input closing dari Excel</h3>
+    <div class="hint">Masukkan nomor rekening dan nama nasabah saja. Kolom CIF tidak dibaca.</div>
+    <div class="tools-row">
+      <div class="field"><label for="closingDate">Tanggal</label><input id="closingDate" type="date"></div>
+      <div class="field"><label for="closingProduct">Jenis tabungan</label><input id="closingProduct" placeholder="Contoh: Tabungan Wadiah"></div>
+      <div class="field"><label for="closingRek">No rekening</label><input id="closingRek" inputmode="numeric" placeholder="Nomor rekening"></div>
+      <div class="field"><label for="closingName">Nama nasabah</label><input id="closingName" placeholder="Nama nasabah"></div>
+      <button class="action-btn" onclick="addClosing()">Tambah closing</button>
+      <label class="action-btn secondary-btn" for="excelInput">Baca Excel</label>
+      <input class="file-input" id="excelInput" type="file" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
+    </div>
+    <div id="importStatus" class="tools-note">Excel yang didukung: kolom TANGGAL, NO REK, NAMA, TABUNGAN. Baris dengan penanda “new” akan diprioritaskan.</div>
+  </div>
   <div id="content"><div class="loading">⏳ Mengambil data…</div></div>
   <div class="foot" id="footText">Data pembukaan baru • diperbarui otomatis dari catatan bot</div>
 
@@ -110,6 +134,7 @@
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
   const APPS_URL = "https://script.google.com/macros/s/AKfycbyhW8OIRtf763XuuzRAhTWSbvdNDoJRojJTxwGxqNB2iSu6O1Nkjyt8PpcNAZvovHAkIQ/exec";
+  const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   // =======================================================================
 
   const PRODUK_COLORS = {
@@ -134,6 +159,7 @@
 
   // Ambil data: coba fetch dulu (andal & cepat), JSONP sebagai cadangan
   const LS_KEY = 'dashboard_cache_v1';
+  const CLOSING_KEY = 'dashboard_closing_v1';
   let _attempt = 0, _timer = null, _fetched = false, _forceRefresh = false, _shown = false;
 
   function forceRefresh() {
@@ -208,7 +234,7 @@
   // Render data ke layar (dipakai baik untuk data cache maupun data baru)
   function applyData(data) {
     _shown = true;
-    ALL = data;
+    ALL = mergeLocalClosings(data);
     const sel = document.getElementById('monthSelect');
     const prev = sel.value;
     sel.innerHTML = '<option value="all">Semua Waktu</option>' +
@@ -236,7 +262,7 @@
 
     const hariKeys = Object.keys(bucket.perHari).sort();
     const html = ''
-      + '<div class="hero"><div><div class="hlabel">Pembukaan Baru</div><div class="hvalue">' + bucket.total + '</div></div><div class="hsub">' + label + '</div></div>'
+      + '<div class="hero"><div><div class="hlabel">Pembukaan Baru</div><div class="hvalue">' + bucket.total + '</div></div><div><div class="newcif">New CIF: ' + uniqueAccounts(bucket) + '</div><div class="hsub">' + label + '</div></div></div>'
       + '<div class="grid2">'
       +   '<div class="card"><h3>Pembukaan Baru per Produk</h3><div class="hint">Total unit produk (khusus pembukaan baru)</div><div class="chart-wrap"><canvas id="cProduk"></canvas></div></div>'
       +   '<div class="card"><h3>Tren Harian Pembukaan Baru</h3><div class="hint">Jumlah pembukaan baru per tanggal</div><div class="chart-wrap"><canvas id="cTren"></canvas></div></div>'
@@ -310,6 +336,52 @@
           return '<tr><td>' + r.tanggal + '</td><td><span class="badge">' + esc(r.produk) + '</span></td><td>' + esc(r.nama) + '</td><td>' + esc(r.rek) + '</td></tr>';
         }).join('')
       + '</tbody></table>';
+  }
+  function localClosings(){ try { return JSON.parse(localStorage.getItem(CLOSING_KEY) || '[]'); } catch(e){ return []; } }
+  function saveLocalClosings(rows){ localStorage.setItem(CLOSING_KEY, JSON.stringify(rows)); }
+  function uniqueAccounts(bucket){
+    const set = {};
+    const source = (bucket.rows && bucket.rows.length) ? bucket.rows : (ALL.recent || []);
+    source.forEach(function(r){ if (r.rek) set[String(r.rek).replace(/\s/g,'')] = true; });
+    return Object.keys(set).length;
+  }
+  function mergeLocalClosings(data){
+    const local = localClosings();
+    if (!local.length) return data;
+    const copy = JSON.parse(JSON.stringify(data));
+    copy.months = Array.from(new Set((copy.months || []).concat(local.map(function(r){ return r.bulan; })))).sort();
+    copy.byMonth = copy.byMonth || {};
+    copy.all = { total: 0, perProduk: {}, perHari: {}, rows: [] };
+    // API lama hanya mengirim ringkasan dan recent; detail lokal disimpan terpisah.
+    // Detail recent dipakai untuk menghitung New CIF bila nomor rekening tersedia.
+    Object.keys(copy.byMonth).forEach(function(k){
+      if (!copy.byMonth[k].rows.length) copy.byMonth[k].rows = (copy.recent || []).filter(function(r){ return r.bulan === k; });
+    });
+    Object.keys(copy.byMonth).forEach(function(k){ copy.byMonth[k].rows = copy.byMonth[k].rows || []; });
+    const add = function(bucket, r){ bucket.total += 1; bucket.perProduk[r.produk] = (bucket.perProduk[r.produk] || 0) + 1; bucket.perHari[r.iso] = (bucket.perHari[r.iso] || 0) + 1; bucket.rows.push(r); };
+    Object.keys(copy.byMonth).forEach(function(k){ const b=copy.byMonth[k]; b.total=0; b.perProduk={}; b.perHari={}; (b.rows || []).forEach(function(r){ add(b,r); }); });
+    (copy.months || []).forEach(function(k){ if(!copy.byMonth[k]) copy.byMonth[k]={total:0,perProduk:{},perHari:{},rows:[]}; });
+    local.forEach(function(r){ add(copy.byMonth[r.bulan], r); });
+    Object.keys(copy.byMonth).forEach(function(k){ (copy.byMonth[k].rows || []).forEach(function(r){ add(copy.all,r); }); });
+    copy.recent = copy.all.rows.slice().sort(function(a,b){ return b.iso.localeCompare(a.iso); });
+    return copy;
+  }
+  function normalizeDate(v){
+    if (v instanceof Date) return v.toISOString().slice(0,10);
+    const s=String(v || '').trim();
+    if (/^\d{8}$/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+    const d=new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0,10);
+  }
+  function addClosing(){
+    const iso=document.getElementById('closingDate').value, rek=document.getElementById('closingRek').value.trim(), nama=document.getElementById('closingName').value.trim(), produk=document.getElementById('closingProduct').value.trim();
+    if(!iso || !rek || !nama || !produk){ document.getElementById('importStatus').textContent='Lengkapi tanggal, jenis tabungan, nomor rekening, dan nama nasabah.'; return; }
+    const rows=localClosings(); rows.push({iso:iso,bulan:iso.slice(0,7),tanggal:iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4),produk:produk,nama:nama,rek:rek}); saveLocalClosings(rows); if(ALL) applyData(JSON.parse(localStorage.getItem(LS_KEY) || '{}')); document.getElementById('importStatus').textContent='Closing berhasil ditambahkan di perangkat ini.';
+  }
+  function importExcel(event){
+    const file=event.target.files[0]; if(!file) return;
+    const run=function(){ const reader=new FileReader(); reader.onload=function(e){ const wb=XLSX.read(e.target.result,{type:'array',cellDates:true}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true}); const local=localClosings(); let added=0;
+      rows.forEach(function(r){ const keys=Object.keys(r), find=function(names){ const k=keys.find(function(x){ return names.indexOf(String(x).trim().toUpperCase())>=0; }); return k ? r[k] : ''; }; const iso=normalizeDate(find(['TANGGAL','DATE'])), rek=String(find(['NO REK','NO. REK','NO REKENING','NOMOR REKENING'])).trim(), nama=String(find(['NAMA NASABAH','NAMA REKENING','NAMA'])).trim(), produk=String(find(['TABUNGAN','PRODUK','JENIS TABUNGAN'])).trim(); if(iso&&rek&&nama&&produk){ const key=iso+'|'+rek+'|'+produk; if(!local.some(function(x){return x.iso+'|'+x.rek+'|'+x.produk===key;})){ local.push({iso:iso,bulan:iso.slice(0,7),tanggal:iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4),produk:produk,nama:nama,rek:rek}); added++; } } }); saveLocalClosings(local); if(ALL) applyData(JSON.parse(localStorage.getItem(LS_KEY) || '{}')); document.getElementById('importStatus').textContent='Excel dibaca: '+added+' closing baru ditambahkan. CIF tidak diambil.'; }; reader.readAsArrayBuffer(file); };
+    if(window.XLSX) run(); else { const s=document.createElement('script'); s.src=XLSX_URL; s.onload=run; s.onerror=function(){document.getElementById('importStatus').textContent='Library pembaca Excel gagal dimuat.';}; document.head.appendChild(s); }
   }
   function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
 
