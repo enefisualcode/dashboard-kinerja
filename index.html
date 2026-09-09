@@ -138,6 +138,7 @@
 <script>
   // ====== GANTI dengan URL Web App Apps Script kamu (diakhiri /exec) ======
   const APPS_URL = "https://script.google.com/macros/s/AKfycbyhW8OIRtf763XuuzRAhTWSbvdNDoJRojJTxwGxqNB2iSu6O1Nkjyt8PpcNAZvovHAkIQ/exec";
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1keyUwGqj9k1_ns3uOiPzVOt5F5s-wiMj5jKP8W2aG0s/export?format=csv&gid=0';
   const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   // =======================================================================
 
@@ -233,6 +234,25 @@
     clearTimeout(_timer);
     try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) {}
     applyData(data);
+    loadSheetCategories(data);
+  }
+
+  function parseCsvLine(line){
+    const out=[]; let cur='', quoted=false;
+    for(let i=0;i<line.length;i++){ const c=line[i]; if(c==='"' && line[i+1]==='"'){cur+='"';i++;} else if(c==='"'){quoted=!quoted;} else if(c===',' && !quoted){out.push(cur);cur='';} else cur+=c; }
+    out.push(cur); return out;
+  }
+  function loadSheetCategories(data){
+    fetch(SHEET_CSV_URL + '&_=' + Date.now()).then(function(r){return r.text();}).then(function(csv){
+      const lines=csv.split(/\r?\n/).filter(function(x){return x.trim();}); if(!lines.length) return;
+      const headers=parseCsvLine(lines[0]).map(function(x){return x.trim().toUpperCase();});
+      const idx=function(names){return names.map(function(n){return headers.indexOf(n);}).find(function(i){return i>=0;});};
+      const di=idx(['DATE','TANGGAL']), ri=idx(['NO REKENING','NO REK','NO. REK']), ki=idx(['KATEGORI']); if([di,ri,ki].some(function(i){return i===undefined;})) return;
+      const seen={}; lines.slice(1).forEach(function(line){const r=parseCsvLine(line), iso=normalizeDate(r[di]), rek=String(r[ri]||'').trim(), kat=String(r[ki]||'').trim().toLowerCase(); if(iso&&rek&&kat==='new cif') seen[iso.slice(0,7)+'|'+rek]=true;});
+      const counts={}; Object.keys(seen).forEach(function(k){const m=k.slice(0,7);counts[m]=(counts[m]||0)+1;});
+      Object.keys(data.byMonth||{}).forEach(function(m){data.byMonth[m].newCif=counts[m]||0;}); data.all.newCif=Object.keys(seen).length;
+      try{localStorage.setItem(LS_KEY,JSON.stringify(data));}catch(e){} applyData(data);
+    }).catch(function(){});
   }
 
   // Render data ke layar (dipakai baik untuk data cache maupun data baru)
@@ -266,7 +286,7 @@
 
     const hariKeys = Object.keys(bucket.perHari).sort();
     const html = ''
-      + '<div class="hero"><div><div class="hlabel">Pembukaan Baru</div><div class="hvalue">' + bucket.total + '</div></div><div><div class="newcif">New CIF: ' + uniqueAccounts(bucket) + '</div><div class="hsub">' + label + '</div></div></div>'
+      + '<div class="hero"><div><div class="hlabel">Pembukaan Baru</div><div class="hvalue">' + bucket.total + '</div></div><div><div class="newcif">New CIF: ' + newCifCount(bucket) + '</div><div class="hsub">' + label + '</div></div></div>'
       + '<div class="grid2">'
       +   '<div class="card"><h3>Pembukaan Baru per Produk</h3><div class="hint">Total unit produk (khusus pembukaan baru)</div><div class="chart-wrap"><canvas id="cProduk"></canvas></div></div>'
       +   '<div class="card"><h3>Tren Harian Pembukaan Baru</h3><div class="hint">Jumlah pembukaan baru per tanggal</div><div class="chart-wrap"><canvas id="cTren"></canvas></div></div>'
@@ -354,6 +374,10 @@
     source.forEach(function(r){ if (r.rek && String(r.kategori || '').trim().toLowerCase().replace(/[_-]+/g,' ') === 'new cif') set[String(r.rek).replace(/\s/g,'')] = true; });
     return Object.keys(set).length;
   }
+  function newCifCount(bucket){
+    if (typeof bucket.newCif === 'number') return bucket.newCif;
+    return uniqueAccounts(bucket);
+  }
   function mergeLocalClosings(data){
     const local = localClosings();
     if (!local.length) return data;
@@ -379,6 +403,7 @@
     if (v instanceof Date) return v.toISOString().slice(0,10);
     const s=String(v || '').trim();
     if (/^\d{8}$/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+    const dm=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if(dm) return dm[3]+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0');
     const d=new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0,10);
   }
   function addClosing(){
